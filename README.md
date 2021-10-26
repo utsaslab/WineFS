@@ -9,6 +9,24 @@ WineFS is built by modifying [PMFS](https://github.com/linux-pmfs/pmfs) by Intel
 (d) Crash recovery
 (e) hybrid data atomicity mechanism: 500 LOC
 
+Please cite this paper if you use WineFS:
+
+**WineFS: a hugepage-aware file system for persistent memory that ages gracefully**.<br>
+Rohan Kadekodi, Saurabh Kadekodi, Soujanya Ponnapalli, Harshad Shirwadkar, Greg Ganger, Aasheesh Kolli, Vijay Chidambaram.<br>
+*Proceedings of the 28th ACM Symposium on Operating Systems Principles (SOSP '21)*<br>
+[Paper PDF](https://www.cs.utexas.edu/~vijay/papers/winefs-sosp21.pdf). [Bibtex](https://www.cs.utexas.edu/~vijay/bibtex/winefs-sosp21.bib). [Talk Slides](https://www.cs.utexas.edu/~vijay/papers/winefs-sosp21-slides.pdf). [Talk video (10 min)](https://www.youtube.com/watch?v=16Ami3IsYI8)
+
+~~~~
+@InProceedings{KadekodiEtAl21-WineFS,
+      title =        "{WineFS: a hugepage-aware file system for persistent memory that ages gracefully}",
+      author =       "Rohan Kadedodi and Saurabh Kadekodi and Soujanya Ponnapalli and Harshad Shirwadkar and Greg Ganger and Aasheesh Kolli and  Vijay Chidambaram",
+      booktitle =    "Proceedings of the 28th ACM Symposium on Operating
+                  Systems Principles (SOSP '21)",
+      month =        "October",
+      year =         "2021",
+ }
+~~~~
+
 **Note: Artifact Evaluation details are in the [Experiments page](https://github.com/rohankadekodi/WineFS/blob/main/Experiments.md)**
 
 ## Contents
