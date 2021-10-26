@@ -1,0 +1,8 @@
+*.o
+core
+*output*
+*swp
+*cscope*
+
+tracerecorder/target
+binding-parent/datastore-specific-descriptor/target/

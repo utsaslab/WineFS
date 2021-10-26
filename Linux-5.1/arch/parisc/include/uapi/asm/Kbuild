@@ -1,0 +1,2 @@
+generated-y += unistd_32.h
+generated-y += unistd_64.h

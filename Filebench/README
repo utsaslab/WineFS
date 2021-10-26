@@ -1,0 +1,13 @@
+## Filebench Setup
+
+1. Generate autotool scripts: 
+$ libtoolize
+$ aclocal
+$ autoheader
+$ automake --add-missing
+$ autoconf
+
+2. Compile & Install Filebench: 
+$ ./configure
+$ make -j <num-threads>
+$ sudo make install
