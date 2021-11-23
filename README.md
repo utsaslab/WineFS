@@ -54,11 +54,27 @@ has a list of experiments evaluating WineFS vs ext4-DAX, NOVA and xfs-DAX. The s
 ## Setup Kernel
 Follow steps in [Linux-5.1](https://github.com/rohankadekodi/WineFS/tree/main/Linux-5.1) to install the Linux 5.1 kernel which has WineFS as a loadable module.
 
+## Mounting WineFS
+WineFS in the **default mode** ensures metadata consistency, data consistency and synchronous system-calls (Similar to NOVA, Strata and SplitFS-strict). WineFS in this mode can be mounted using:
+
+```
+$ sudo mount -t winefs -o init,strict /dev/pmem0 /mnt/pmem0
+```
+
+WineFS also contains a **relaxed mode** that provides metadata consistency and synchronous system-calls (Similar to NOVA-Relaxed, PMFS, ext4-DAX, xfs-DAX, SplitFS-Sync). WineFS in this mode can be mounted using:
+
+```
+$ sudo mount -t winefs -o init /dev/pmem0 /mnt/pmem0
+```
+
 ## Limitations
 WineFS is under active development. Although there are no known bugs, we welcome any bug reports or bug fixes. 
 
 ## Testing
 [PJD POSIX Test Suite](https://www.tuxera.com/community/posix-test-suite/) that tests primarily the metadata operations was run on WineFS successfully. WineFS passes all tests. 
+
+## License
+<a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc/4.0/88x31.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc/4.0/">Creative Commons Attribution-NonCommercial 4.0 International License</a>.
 
 ## Contributors
 
