@@ -66,7 +66,6 @@ WineFS also contains a **relaxed mode** that provides metadata consistency and s
 ```
 $ sudo mount -t winefs -o init /dev/pmem0 /mnt/pmem0
 ```
-
 ## Limitations
 WineFS is under active development. Although there are no known bugs, we welcome any bug reports or bug fixes. 
 
