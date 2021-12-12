@@ -827,8 +827,9 @@ static int recursive_alloc_blocks(pmfs_transaction_t *trans,
 						(*num_free_blks) += 1;
 					}
 
-					if (node[j] == 0 || strong_guarantees)
+					if (node[j] == 0 || strong_guarantees) {
 						node[j] = node_val;
+					}
 
 					blocknr++;
 				}
@@ -914,6 +915,7 @@ int __pmfs_alloc_blocks(pmfs_transaction_t *trans, struct super_block *sb,
 	unsigned int blk_shift, meta_bits = META_BLK_SHIFT;
 	unsigned long blocknr, first_blocknr, last_blocknr, total_blocks;
 	timing_t alloc_time;
+	bool strong_guarantees = PMFS_SB(sb)->s_mount_opt & PMFS_MOUNT_STRICT;
 
 	/* convert the 4K blocks into the actual blocks the inode is using */
 	blk_shift = data_bits - sb->s_blocksize_bits;
@@ -982,7 +984,27 @@ int __pmfs_alloc_blocks(pmfs_transaction_t *trans, struct super_block *sb,
 		}
 	} else {
 		/* Go forward only if the height of the tree is non-zero. */
-		if (height == 0)
+        	if (height == 0 && strong_guarantees && write_path) {
+			__le64 root;
+			if (free_blk_list != NULL) {
+			        free_blk_list[*num_free_blks] = pi->root;
+				(*num_free_blks) += 1;
+			}
+
+			errval = pmfs_new_data_blocks(sb, pi, &blocknr,
+						      1, zero, cpu, write_path);
+			if (errval < 0) {
+				pmfs_dbg_verbose("[%s:%d] failed: alloc data"
+					" block\n", __func__, __LINE__);
+				goto fail;
+			}
+			root = cpu_to_le64(pmfs_get_block_off(sb, blocknr,
+					   pi->i_blk_type));
+			pmfs_memunlock_inode(sb, pi);
+			pi->root = root;
+			pmfs_memlock_inode(sb, pi);
+			return 0;
+	          } else if (height == 0)
 			return 0;
 
 		if (height > pi->height) {
