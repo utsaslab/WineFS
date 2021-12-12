@@ -291,6 +291,8 @@ static ssize_t pmfs_file_write_fast(struct super_block *sb, struct inode *inode,
 	void *xmem = pmfs_get_block(sb, block);
 	size_t copied, ret = 0, offset;
 	timing_t memcpy_time;
+	bool strong_guarantees = PMFS_SB(sb)->s_mount_opt & PMFS_MOUNT_STRICT;
+	bool barrier = strong_guarantees ? true : false;
 
 	offset = pos & (sb->s_blocksize - 1);
 
@@ -330,7 +332,7 @@ static ssize_t pmfs_file_write_fast(struct super_block *sb, struct inode *inode,
 		pmfs_memcpy_atomic(&pi->i_ctime, &c_m_time, 8);
 		pmfs_memlock_inode(sb, pi);
 	}
-	pmfs_flush_buffer(pi, 1, false);
+	pmfs_flush_buffer(pi, 1, barrier);
 	return ret;
 }
 
