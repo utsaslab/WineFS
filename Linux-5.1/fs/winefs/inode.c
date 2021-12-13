@@ -1814,7 +1814,7 @@ struct inode *pmfs_new_inode(pmfs_transaction_t *trans, struct inode *dir,
 		return ERR_PTR(-EACCES);
 
 	map_id = sbi->map_id;
-	sbi->map_id = (sbi->map_id + 1) % (sbi->cpus-5);
+	sbi->map_id = (sbi->map_id + 1) % (sbi->cpus);
 	inode_map = &sbi->inode_maps[map_id];
 	mutex_lock(&inode_map->inode_table_mutex);
 
