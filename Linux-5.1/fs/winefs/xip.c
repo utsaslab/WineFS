@@ -178,8 +178,7 @@ static inline void pmfs_flush_edge_cachelines(loff_t pos, ssize_t len,
 {
 	if (unlikely(pos & 0x7))
 		pmfs_flush_buffer(start_addr, 1, false);
-	if (unlikely(((pos + len) & 0x7) && ((pos & (CACHELINE_SIZE - 1)) !=
-			((pos + len) & (CACHELINE_SIZE - 1)))))
+	if (unlikely(((pos + len) & 0x7) && len > 0))
 		pmfs_flush_buffer(start_addr + len, 1, false);
 }
 
