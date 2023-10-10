@@ -717,6 +717,8 @@ static int pmfs_increase_btree_height(struct super_block *sb,
 		if (errval < 0) {
 			pmfs_err(sb, "failed to increase btree height\n");
 			break;
+		} else {
+			errval = 0;
 		}
 		blocknr = pmfs_get_block_off(sb, blocknr, PMFS_BLOCK_TYPE_4K);
 		root = pmfs_get_block(sb, blocknr);
@@ -731,7 +733,7 @@ static int pmfs_increase_btree_height(struct super_block *sb,
 	pi->root = prev_root;
 	pi->height = height;
 	pmfs_memlock_inode(sb, pi);
-	return 0;
+	return errval;
 }
 
 /* recursive_alloc_blocks: recursively allocate a range of blocks from
