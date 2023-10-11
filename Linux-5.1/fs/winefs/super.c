@@ -707,7 +707,7 @@ static void pmfs_recover_truncate_list(struct super_block *sb)
 			break;
 		pmfs_dbg("Recover ino %llx nlink %d sz %llx:%llx\n", ino_next,
 			inode->i_nlink, pi->i_size, li->i_truncatesize);
-		if (inode->i_nlink) {
+		if (inode->i_nlink && le64_to_cpu(li->i_truncatesize) != inode->i_size) {
 			/* set allocation hint */
 			/*pmfs_set_blocksize_hint(sb, pi, 
 					le64_to_cpu(li->i_truncatesize));
