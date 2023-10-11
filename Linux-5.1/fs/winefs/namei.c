@@ -365,9 +365,9 @@ static int pmfs_unlink(struct inode *dir, struct dentry *dentry)
 		goto end_unlink;
 
 	PMFS_START_TIMING(truncate_add_t, truncate_add_time);
+	inode->i_ctime = dir->i_ctime;
 	if (inode->i_nlink == 1)
 		pmfs_truncate_add(inode, inode->i_size);
-	inode->i_ctime = dir->i_ctime;
 	PMFS_END_TIMING(truncate_add_t, truncate_add_time);
 
 	pmfs_memunlock_inode(sb, pi);

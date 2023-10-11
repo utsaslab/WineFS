@@ -705,13 +705,19 @@ static void pmfs_recover_truncate_list(struct super_block *sb)
 		inode = pmfs_iget(sb, ino_next);
 		if (IS_ERR(inode))
 			break;
-		pmfs_dbg("Recover ino %llx nlink %d sz %llx:%llx\n", ino_next,
-			inode->i_nlink, pi->i_size, li->i_truncatesize);
+		pmfs_dbg("Recover ino %llx nlink %d sz %llx:%llx mtime %x ctime %x\n", ino_next,
+			inode->i_nlink, pi->i_size, li->i_truncatesize, li->i_truncatemtime, li->i_truncatectime);
 		if (inode->i_nlink) {
 			/* set allocation hint */
 			/*pmfs_set_blocksize_hint(sb, pi, 
 					le64_to_cpu(li->i_truncatesize));
 			*/
+			if(li->i_timemarker != 0) {
+				inode->i_mtime.tv_sec = le32_to_cpu(li->i_truncatemtime);
+				inode->i_ctime.tv_sec = le32_to_cpu(li->i_truncatectime);
+			} else {
+				inode->i_mtime = inode->i_ctime = current_time(inode);
+			}
 			pmfs_setsize(inode, le64_to_cpu(li->i_truncatesize));
 			pmfs_update_isize(inode, pi);
 		} else {
