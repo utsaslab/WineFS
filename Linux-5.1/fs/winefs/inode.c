@@ -564,16 +564,8 @@ static void pmfs_decrease_btree_height(struct super_block *sb,
 		height--;
 	}
 update_root_and_height:
-	/* pi->height and pi->root need to be atomically updated. use
-	 * cmpxchg16 here. The following is dependent on a specific layout of
-	 * inode fields */
-	*(u64 *)b = *(u64 *)pi;
-	/* pi->height is at offset 2 from pi */
-	b[2] = (u8)new_height;
-	/* TODO: the following function assumes cmpxchg16b instruction writes
-	 * 16 bytes atomically. Confirm if it is really true. */
-	cmpxchg_double_local((u64 *)pi, &pi->root, *(u64 *)pi, pi->root,
-		*(u64 *)b, newroot);
+	pi->root = newroot;
+	pi->height = height;
 }
 
 static unsigned long pmfs_inode_count_iblocks_recursive(struct super_block *sb,
@@ -630,6 +622,7 @@ static void __pmfs_truncate_blocks(struct inode *inode, loff_t start,
 	unsigned int freed = 0;
 	unsigned int data_bits = blk_type_to_shift[pi->i_blk_type];
 	unsigned int meta_bits = META_BLK_SHIFT;
+	struct pmfs_transaction *trans;
 	bool mpty;
 
 	inode->i_mtime = inode->i_ctime = current_time(inode);
@@ -681,6 +674,11 @@ static void __pmfs_truncate_blocks(struct inode *inode, loff_t start,
 		inode->i_blocks -= (freed * (1 << (data_bits -
 				sb->s_blocksize_bits)));
 
+	PERSISTENT_BARRIER();
+	BUG_ON(pmfs_current_transaction());
+	trans = pmfs_new_transaction(sb, MAX_INODE_LENTRIES, pmfs_get_cpuid(sb));
+	pmfs_add_logentry(sb, trans, pi, sizeof(*pi), LE_DATA);
+
 	pmfs_memunlock_inode(sb, pi);
 	pi->i_blocks = cpu_to_le64(inode->i_blocks);
 	pi->i_mtime = cpu_to_le32(inode->i_mtime.tv_sec);
@@ -690,7 +688,8 @@ static void __pmfs_truncate_blocks(struct inode *inode, loff_t start,
 	check_eof_blocks(sb, pi, inode->i_size);
 	pmfs_memlock_inode(sb, pi);
 	/* now flush the inode's first cacheline which was modified */
-	pmfs_flush_buffer(pi, 1, false);
+	pmfs_flush_buffer(pi, 1, true);
+	pmfs_commit_transaction(sb, trans);
 	return;
 end_truncate_blocks:
 	/* we still need to update ctime and mtime */
