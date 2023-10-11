@@ -14,14 +14,37 @@ const struct xattr_handler *pmfs_xattr_handlers[] = {
 };
 
 static inline void
-pmfs_update_special_xattr(struct super_block *sb, void *pmem_addr, struct pmfs_special_xattr_info *xattr_info)
+pmfs_update_special_xattr(struct super_block *sb, pmfs_transaction_t *trans, void *pmem_addr, struct pmfs_special_xattr_info *xattr_info)
 {
 	if (pmem_addr && xattr_info) {
+		pmfs_add_logentry(sb, trans, pmem_addr, sizeof(struct pmfs_special_xattr_info), LE_DATA);
 		pmfs_memunlock_range(sb, pmem_addr, sizeof(struct pmfs_special_xattr_info));
 		memcpy(pmem_addr, (void *)xattr_info, sizeof(struct pmfs_special_xattr_info));
 		pmfs_flush_buffer((void *)xattr_info, sizeof(struct pmfs_special_xattr_info), false);
 		pmfs_memlock_range(sb, pmem_addr, sizeof(struct pmfs_special_xattr_info));
 	}
+}
+
+int pmfs_has_vft(struct inode* inode, struct pmfs_inode *pi) {
+	struct super_block *sb = inode->i_sb;
+	int fraction_of_hugepage_files = 0;
+
+	if(pi->i_xattr) {
+		return 0;
+	}
+
+	if(pi->huge_aligned_file) {
+		return 1;
+	}
+
+	if (S_ISDIR(inode->i_mode)) {
+		fraction_of_hugepage_files = pmfs_get_ratio_hugepage_files_in_dir(sb, inode);
+		if (fraction_of_hugepage_files == 1) {
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 int
@@ -60,10 +83,11 @@ pmfs_xattr_set(struct inode *inode, const char *name,
 	}
 
 	pi = pmfs_get_inode(sb, inode->i_ino);
-	trans = pmfs_new_transaction(sb, MAX_INODE_LENTRIES, cpu);
+	trans = pmfs_new_transaction(sb, MAX_INODE_LENTRIES*2, cpu);
 
+
+	pmfs_add_logentry(sb, trans, pi, sizeof(*pi), LE_DATA);
 	if (!pi->i_xattr) {
-		pmfs_add_logentry(sb, trans, pi, sizeof(*pi), LE_DATA);
 		num_blocks = pmfs_new_blocks(sb, &blocknr, 1, PMFS_BLOCK_TYPE_4K, 1, cpu);
 		if (num_blocks == 0) {
 			ret = -ENOSPC;
@@ -75,6 +99,7 @@ pmfs_xattr_set(struct inode *inode, const char *name,
 		pmfs_memlock_range(sb, pi, CACHELINE_SIZE);
 	}
 
+	pmfs_memunlock_range(sb, pi, CACHELINE_SIZE);
 	xattr_info.name = PMFS_SPECIAL_XATTR_NAME;
 	if (!memcmp(value, (void *)special_xattr_value_mmap, value_len)) {
 		xattr_info.value = PMFS_SPECIAL_XATTR_MMAP_VALUE;
@@ -83,9 +108,11 @@ pmfs_xattr_set(struct inode *inode, const char *name,
 		xattr_info.value = PMFS_SPECIAL_XATTR_SYS_VALUE;
 		pi->huge_aligned_file = 0;
 	}
+	pmfs_memlock_range(sb, pi, CACHELINE_SIZE);
+
 
 	bp = pmfs_get_block(sb, pi->i_xattr);
-	pmfs_update_special_xattr(sb, (void *)bp, &xattr_info);
+	pmfs_update_special_xattr(sb, trans, (void *)bp, &xattr_info);
 	pmfs_commit_transaction(sb, trans);
 
  out:
@@ -101,7 +128,6 @@ pmfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
 	struct pmfs_inode *pi = pmfs_get_inode(sb, inode->i_ino);
 	const char *special_xattr = "file_type";
 	const char *user_special_xattr = "user.file_type";
-	int fraction_of_hugepage_files = 0;
 
 	inode_lock(inode);
 
@@ -110,21 +136,8 @@ pmfs_listxattr(struct dentry *dentry, char *buffer, size_t buffer_size)
 	 * and mark dir as hugepage aligned if all the files
 	 * in the dir are hugepage aligned
 	 */
-	if (S_ISDIR(inode->i_mode)) {
-		fraction_of_hugepage_files = pmfs_get_ratio_hugepage_files_in_dir(sb, inode);
-		if (fraction_of_hugepage_files == 1) {
-			pi->huge_aligned_file = 1;
-		}
-	}
 
-	if (pi->huge_aligned_file && !pi->i_xattr) {
-		ret = pmfs_xattr_set(inode, special_xattr, "mmap", 4, 0);
-		if (ret != 0) {
-			goto out;
-		}
-	}
-
-	if (!pi->i_xattr) {
+	if (!pi->i_xattr && !pmfs_has_vft(inode, pi)) {
 		ret = 0;
 		goto out;
 	}
@@ -167,21 +180,17 @@ int pmfs_xattr_get(struct inode *inode, const char *name,
 
 	pi = pmfs_get_inode(sb, inode->i_ino);
 
-	if (pi->huge_aligned_file && !pi->i_xattr) {
-		ret = pmfs_xattr_set(inode, special_xattr, "mmap", 4, 0);
-		if (ret != 0) {
-			goto out;
-		}
-	}
-
-	if (!pi->i_xattr) {
+	if (pi->i_xattr) {
+		bp = pmfs_get_block(sb, pi->i_xattr);
+		memcpy(&value, (void *) (bp + sizeof(int)), sizeof(int));
+		pmfs_dbg_verbose("%s: value = %d. buffer size = %lu\n", __func__, value, size);
+	} else if(pmfs_has_vft(inode, pi)) {
+		value = PMFS_SPECIAL_XATTR_MMAP_VALUE;
+	} else {
 		ret = -ENODATA;
 		goto out;
 	}
 
-	bp = pmfs_get_block(sb, pi->i_xattr);
-	memcpy(&value, (void *) (bp + sizeof(int)), sizeof(int));
-	pmfs_dbg_verbose("%s: value = %d. buffer size = %lu\n", __func__, value, size);
 	if (buffer) {
 		if (value == PMFS_SPECIAL_XATTR_MMAP_VALUE && size >= 4) {
 			memcpy(buffer, "mmap", 4);

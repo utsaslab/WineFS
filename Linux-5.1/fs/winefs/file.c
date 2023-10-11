@@ -121,7 +121,7 @@ static long pmfs_fallocate(struct file *file, int mode, loff_t offset,
 		ret = PTR_ERR(trans);
 		goto out;
 	}
-	pmfs_add_logentry(sb, trans, pi, MAX_DATA_PER_LENTRY, LE_DATA);
+	pmfs_add_logentry(sb, trans, pi, sizeof(*pi), LE_DATA);
 
 	/* Set the block size hint */
 	//pmfs_set_blocksize_hint(sb, pi, new_size);
