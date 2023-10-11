@@ -296,6 +296,18 @@ static ssize_t pmfs_file_write_fast(struct super_block *sb, struct inode *inode,
 
 	offset = pos & (sb->s_blocksize - 1);
 
+	inode->i_ctime = inode->i_mtime = current_time(inode);
+	if(count + offset <= inode->i_size) {
+		u64 c_m_time;
+		/* make sure that the time is updated before any modified data may be committed */
+		c_m_time = (inode->i_ctime.tv_sec & 0xFFFFFFFF);
+		c_m_time = c_m_time | (c_m_time << 32);
+		pmfs_memunlock_inode(sb, pi);
+		pmfs_memcpy_atomic(&pi->i_ctime, &c_m_time, 8);
+		pmfs_memlock_inode(sb, pi);
+		pmfs_flush_buffer(pi, 1, true);
+	}
+
 	PMFS_START_TIMING(memcpy_w_t, memcpy_time);
 	pmfs_xip_mem_protect(sb, xmem + offset, count, 1);
 	copied = memcpy_to_nvmm((char *)xmem, offset, buf, count);
@@ -311,7 +323,6 @@ static ssize_t pmfs_file_write_fast(struct super_block *sb, struct inode *inode,
 	if (unlikely(copied != count && copied == 0))
 		ret = -EFAULT;
 	*ppos = pos;
-	inode->i_ctime = inode->i_mtime = current_time(inode);
 	if (pos > inode->i_size) {
 		/* make sure written data is persistent before updating
 	 	* time and size */
@@ -321,18 +332,8 @@ static ssize_t pmfs_file_write_fast(struct super_block *sb, struct inode *inode,
 		pmfs_memunlock_inode(sb, pi);
 		pmfs_update_time_and_size(inode, pi);
 		pmfs_memlock_inode(sb, pi);
-	} else {
-		u64 c_m_time;
-		/* update c_time and m_time atomically. We don't need to make the data
-		 * persistent because the expectation is that the close() or an explicit
-		 * fsync will do that. */
-		c_m_time = (inode->i_ctime.tv_sec & 0xFFFFFFFF);
-		c_m_time = c_m_time | (c_m_time << 32);
-		pmfs_memunlock_inode(sb, pi);
-		pmfs_memcpy_atomic(&pi->i_ctime, &c_m_time, 8);
-		pmfs_memlock_inode(sb, pi);
+		pmfs_flush_buffer(pi, 1, barrier);
 	}
-	pmfs_flush_buffer(pi, 1, barrier);
 	return ret;
 }
 
