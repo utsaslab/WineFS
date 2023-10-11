@@ -231,6 +231,7 @@ __pmfs_xip_file_write(struct address_space *mapping, const char __user *buf,
 						&xmem, &xpfn);
 		PMFS_END_TIMING(write_find_block_t, write_find_blocks_time);
 		if (blocks_found <= 0) {
+			status = blocks_found;
 			break;
 		}
 
@@ -918,9 +919,9 @@ static int pmfs_find_and_alloc_blocks(struct inode *inode,
 
  set_block:
 	*bno = block;
-	err = 0;
- err:
 	return blocks_found;
+ err:
+	return err;
 }
 
 int pmfs_iomap_begin(struct inode *inode, loff_t offset, loff_t length,
