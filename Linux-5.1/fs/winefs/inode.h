@@ -343,17 +343,15 @@ static inline void check_eof_blocks(struct super_block *sb,
 static inline void pmfs_update_time_and_size(struct inode *inode,
 	struct pmfs_inode *pi)
 {
-	__le32 words[2];
+	__le64 words;
 	__le64 new_pi_size = cpu_to_le64(i_size_read(inode));
 
-	/* pi->i_size, pi->i_ctime, and pi->i_mtime need to be atomically updated.
- 	* So use cmpxchg16b here. */
-	words[0] = cpu_to_le32(inode->i_ctime.tv_sec);
-	words[1] = cpu_to_le32(inode->i_mtime.tv_sec);
-	/* TODO: the following function assumes cmpxchg16b instruction writes
- 	* 16 bytes atomically. Confirm if it is really true. */
-	cmpxchg_double_local(&pi->i_size, (u64 *)&pi->i_ctime, pi->i_size,
-		*(u64 *)&pi->i_ctime, new_pi_size, *(u64 *)words);
+	words = cpu_to_le32(inode->i_mtime.tv_sec);
+	words <<= 32;
+	words |= cpu_to_le32(inode->i_ctime.tv_sec);
+	volatile __le64* target = (__le64*) &pi->i_ctime;
+	*target = words;
+	((volatile struct pmfs_inode*)pi)->i_size =  new_pi_size;
 }
 
 int pmfs_init_inode_inuse_list(struct super_block *sb);
