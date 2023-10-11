@@ -73,6 +73,9 @@ struct pmfs_inode_info_header {
 struct pmfs_inode_truncate_item {
 	__le64	i_truncatesize;     /* Size of truncated inode */
 	__le64  i_next_truncate;    /* inode num of the next truncated inode */
+	__le32 i_truncatemtime; /* The new mtime after the truncate operation */
+	__le32 i_truncatectime; /* The new ctime after the truncate operation */
+	u8 i_timemarker;
 };
 
 struct pmfs_inode_info {

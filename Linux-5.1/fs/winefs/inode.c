@@ -632,8 +632,6 @@ static void __pmfs_truncate_blocks(struct inode *inode, loff_t start,
 	unsigned int meta_bits = META_BLK_SHIFT;
 	bool mpty;
 
-	inode->i_mtime = inode->i_ctime = current_time(inode);
-
 	if (!pi->root)
 		goto end_truncate_blocks;
 
@@ -2079,6 +2077,9 @@ void pmfs_truncate_add(struct inode *inode, u64 truncate_size)
 	pmfs_memunlock_range(sb, li, sizeof(*li));
 	li->i_next_truncate = head->i_next_truncate;
 	li->i_truncatesize = cpu_to_le64(truncate_size);
+	li->i_truncatemtime = cpu_to_le32(inode->i_mtime.tv_sec);
+	li->i_truncatectime = cpu_to_le32(inode->i_ctime.tv_sec);
+	li->i_timemarker = 1;
 	pmfs_memlock_range(sb, li, sizeof(*li));
 	pmfs_flush_buffer(li, sizeof(*li), false);
 	/* make sure above is persistent before changing the head pointer */
@@ -2117,6 +2118,7 @@ void pmfs_setsize(struct inode *inode, loff_t newsize)
 		pmfs_block_truncate_page(inode, newsize);
 		i_size_write(inode, newsize);
 	}
+
 	/* FIXME: we should make sure that there is nobody reading the inode
 	 * before truncating it. Also we need to munmap the truncated range
 	 * from application address space, if mmapped. */
@@ -2195,6 +2197,7 @@ int pmfs_notify_change(struct dentry *dentry, struct iattr *attr)
 	if ((ia_valid & ATTR_SIZE) && (attr->ia_size != inode->i_size ||
 			pi->i_flags & cpu_to_le32(PMFS_EOFBLOCKS_FL))) {
 
+		inode->i_mtime = inode->i_ctime = current_time(inode);
 		pmfs_truncate_add(inode, attr->ia_size);
 		/* set allocation hint */
 		//pmfs_set_blocksize_hint(sb, pi, attr->ia_size);
